@@ -376,10 +376,11 @@ int main(int argc, char *argv[]) {
     ofdm_set_verbose(ofdm, verbose);
   }
 
-  complex float rx_syms[Nsymsperpacket];
+  COMP rx_syms[Nsymsperpacket];
   float rx_amps[Nsymsperpacket];
   for (int i = 0; i < Nsymsperpacket; i++) {
-    rx_syms[i] = 0.0;
+    rx_syms[i].real = 0.0f;
+    rx_syms[i].imag = 0.0f;
     rx_amps[i] = 0.0;
   }
 
@@ -460,7 +461,7 @@ int main(int argc, char *argv[]) {
         rx_amps[i] = rx_amps[i + Nsymsperframe];
       }
       memcpy(&rx_syms[Nsymsperpacket - Nsymsperframe], ofdm->rx_np,
-             sizeof(complex float) * Nsymsperframe);
+             sizeof(COMP) * Nsymsperframe);
       memcpy(&rx_amps[Nsymsperpacket - Nsymsperframe], ofdm->rx_amp,
              sizeof(float) * Nsymsperframe);
 
@@ -525,8 +526,7 @@ int main(int argc, char *argv[]) {
                  Npayloadbitsperpacket);
           for (i = 0; i < Npayloadsymsperpacket; i++) {
             int bits[2];
-            complex float s = payload_syms[i].real + I * payload_syms[i].imag;
-            qpsk_demod(s, bits);
+            qpsk_demod(payload_syms[i], bits);
             rx_bits_char[ofdm_config->bps * i] = bits[1];
             rx_bits_char[ofdm_config->bps * i + 1] = bits[0];
           }
@@ -624,10 +624,7 @@ int main(int argc, char *argv[]) {
       /* note corrected phase (rx no phase) is one big linear array for frame */
 
       for (i = 0; i < ofdm_rowsperframe * ofdm_config->nc; i++) {
-        rx_np_log[ofdm_rowsperframe * ofdm_config->nc * f + i].real =
-            crealf(ofdm->rx_np[i]);
-        rx_np_log[ofdm_rowsperframe * ofdm_config->nc * f + i].imag =
-            cimagf(ofdm->rx_np[i]);
+        rx_np_log[ofdm_rowsperframe * ofdm_config->nc * f + i] = ofdm->rx_np[i];
       }
 
       /* note phase/amp ests the same for each col, but check them all anyway */

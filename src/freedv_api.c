@@ -551,10 +551,8 @@ int freedv_rawdatapreamblecomptx(struct freedv *f, COMP mod_out[]) {
                                      npreamble_samples);
   } else if (is_ofdm_data_mode(f)) {
     struct OFDM *ofdm = f->ofdm;
-    complex float *tx_preamble = (complex float *)mod_out;
-    memcpy(tx_preamble, ofdm->tx_preamble,
-           sizeof(COMP) * ofdm->samplesperframe);
-    ofdm_hilbert_clipper(ofdm, tx_preamble, ofdm->samplesperframe);
+    memcpy(mod_out, ofdm->tx_preamble, sizeof(COMP) * ofdm->samplesperframe);
+    ofdm_hilbert_clipper(ofdm, mod_out, ofdm->samplesperframe);
     npreamble_samples = ofdm->samplesperframe;
   }
 
@@ -583,10 +581,8 @@ int freedv_rawdatapostamblecomptx(struct freedv *f, COMP mod_out[]) {
 
   if (is_ofdm_data_mode(f)) {
     struct OFDM *ofdm = f->ofdm;
-    complex float *tx_postamble = (complex float *)mod_out;
-    memcpy(tx_postamble, ofdm->tx_postamble,
-           sizeof(COMP) * ofdm->samplesperframe);
-    ofdm_hilbert_clipper(ofdm, tx_postamble, ofdm->samplesperframe);
+    memcpy(mod_out, ofdm->tx_postamble, sizeof(COMP) * ofdm->samplesperframe);
+    ofdm_hilbert_clipper(ofdm, mod_out, ofdm->samplesperframe);
     npostamble_samples = ofdm->samplesperframe;
   }
 
@@ -1207,7 +1203,7 @@ void freedv_set_callback_txt(struct freedv *f, freedv_callback_rx rx,
   all can be NULL, and the default is all NULL.
 
   The function signature is:
-    void receive_sym(void *callback_state, COMP sym, COMP amp);
+    void receive_sym(void *callback_state, COMP sym, float amp);
 
   Note: Active for OFDM modes only (700D/E, 2020).
 \*---------------------------------------------------------------------------*/

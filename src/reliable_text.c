@@ -58,9 +58,8 @@ typedef struct {
 
   char
       inbound_pending_bits[RELIABLE_TEXT_UW_LENGTH_BITS + LDPC_TOTAL_SIZE_BITS];
-  _Complex float inbound_pending_syms[(RELIABLE_TEXT_UW_LENGTH_BITS +
-                                       LDPC_TOTAL_SIZE_BITS) /
-                                      2];
+  COMP inbound_pending_syms[(RELIABLE_TEXT_UW_LENGTH_BITS + LDPC_TOTAL_SIZE_BITS) /
+                            2];
   float inbound_pending_amps[(RELIABLE_TEXT_UW_LENGTH_BITS +
                               LDPC_TOTAL_SIZE_BITS) /
                              2];
@@ -157,7 +156,7 @@ static int reliable_text_ldpc_decode(reliable_text_impl_t* obj, char* dest) {
 
   char* src = &obj->inbound_pending_bits[RELIABLE_TEXT_UW_LENGTH_BITS];
   char deinterleavedBits[LDPC_TOTAL_SIZE_BITS];
-  _Complex float deinterleavedSyms[LDPC_TOTAL_SIZE_BITS / 2];
+  COMP deinterleavedSyms[LDPC_TOTAL_SIZE_BITS / 2];
   float deinterleavedAmps[LDPC_TOTAL_SIZE_BITS / 2];
   float incomingData[LDPC_TOTAL_SIZE_BITS];
   float llr[LDPC_TOTAL_SIZE_BITS];
@@ -171,8 +170,8 @@ static int reliable_text_ldpc_decode(reliable_text_impl_t* obj, char* dest) {
 
     // Deinterleave symbols
     gp_deinterleave_comp(
-        (COMP*)deinterleavedSyms,
-        (COMP*)&obj->inbound_pending_syms[RELIABLE_TEXT_UW_LENGTH_BITS / 2],
+        deinterleavedSyms,
+        &obj->inbound_pending_syms[RELIABLE_TEXT_UW_LENGTH_BITS / 2],
         Npayloadsymsperpacket);
     gp_deinterleave_float(
         deinterleavedAmps,
@@ -181,7 +180,7 @@ static int reliable_text_ldpc_decode(reliable_text_impl_t* obj, char* dest) {
 
     float EsNo = 3.0;  // note: constant from freedv_700.c
 
-    symbols_to_llrs(llr, (COMP*)deinterleavedSyms, deinterleavedAmps, EsNo,
+    symbols_to_llrs(llr, deinterleavedSyms, deinterleavedAmps, EsNo,
                     obj->fdv->ofdm->mean_amp, Npayloadsymsperpacket);
   } else {
     // Deinterlace the received bits.
@@ -224,13 +223,13 @@ static int reliable_text_ldpc_decode(reliable_text_impl_t* obj, char* dest) {
 }
 
 static void reliable_text_freedv_callback_rx_sym(void* state,
-                                                 _Complex float sym,
+                                                 COMP sym,
                                                  float amp) {
   reliable_text_impl_t* obj = (reliable_text_impl_t*)state;
   assert(obj != NULL);
 
   // Save the symbol. We'll use it during the bit handling below.
-  obj->inbound_pending_syms[obj->sym_index] = (complex float)sym;
+  obj->inbound_pending_syms[obj->sym_index] = sym;
   obj->inbound_pending_amps[obj->sym_index++] = amp;
 
   // fprintf(stderr, "Got sym: %f, amp: %f\n", sym, amp);
@@ -302,7 +301,7 @@ static void reliable_text_freedv_callback_rx(void* state, char chr) {
         obj->bit_index = 0;
         obj->sym_index = 0;
         memset(&obj->inbound_pending_syms, 0,
-               sizeof(complex float) * LDPC_TOTAL_SIZE_BITS / 2);
+               sizeof(COMP) * LDPC_TOTAL_SIZE_BITS / 2);
         memset(&obj->inbound_pending_amps, 0,
                sizeof(float) * LDPC_TOTAL_SIZE_BITS / 2);
         memset(&obj->inbound_pending_bits, 0,
@@ -323,7 +322,7 @@ static void reliable_text_freedv_callback_rx(void* state, char chr) {
         memmove(&obj->inbound_pending_bits[0], &obj->inbound_pending_bits[1],
                 RELIABLE_TEXT_UW_LENGTH_BITS + LDPC_TOTAL_SIZE_BITS - 1);
         memmove(&obj->inbound_pending_syms[0], &obj->inbound_pending_syms[1],
-                sizeof(_Complex float) *
+                sizeof(COMP) *
                     ((RELIABLE_TEXT_UW_LENGTH_BITS + LDPC_TOTAL_SIZE_BITS) / 2 -
                      1));
         memmove(&obj->inbound_pending_amps[0], &obj->inbound_pending_amps[1],
@@ -374,7 +373,7 @@ void reliable_text_reset(reliable_text_t ptr) {
   impl->sym_index = 0;
   impl->has_successfully_decoded = 0;
   memset(&impl->inbound_pending_syms, 0,
-         sizeof(complex float) * LDPC_TOTAL_SIZE_BITS / 2);
+         sizeof(COMP) * LDPC_TOTAL_SIZE_BITS / 2);
   memset(&impl->inbound_pending_amps, 0,
          sizeof(float) * LDPC_TOTAL_SIZE_BITS / 2);
   memset(&impl->inbound_pending_bits, 0,

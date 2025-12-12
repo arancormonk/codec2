@@ -109,8 +109,8 @@ void freedv_comptx_700c(struct freedv *f, COMP mod_out[]) {
   }
   for (i = 0; i < f->n_nat_modem_samples; i++)
     mod_out[i] = fcmult(gain * COHPSK_SCALE, tx_fdm[i]);
-  i = quisk_cfInterpDecim((complex float *)mod_out, f->n_nat_modem_samples,
-                          f->ptFilter7500to8000, 16, 15);
+  i = quisk_cfInterpDecim(mod_out, f->n_nat_modem_samples, f->ptFilter7500to8000,
+                          16, 15);
 }
 
 // open function for OFDM voice modes
@@ -305,8 +305,8 @@ void freedv_comptx_ofdm(struct freedv *f, COMP mod_out[]) {
   }
 
   /* OK now ready to LDPC encode, interleave, and OFDM modulate */
-  ofdm_ldpc_interleave_tx(f->ofdm, f->ldpc, (complex float *)mod_out,
-                          f->tx_payload_bits, txt_bits);
+  ofdm_ldpc_interleave_tx(f->ofdm, f->ldpc, mod_out, f->tx_payload_bits,
+                          txt_bits);
 
   FREE(txt_bits);
 }
@@ -329,8 +329,7 @@ int freedv_comprx_700c(struct freedv *f, COMP demod_in_8kHz[]) {
 
   for (i = 0; i < nin8; i++) demod_in[i] = demod_in_8kHz[i];
 
-  i = quisk_cfInterpDecim((complex float *)demod_in, nin8,
-                          f->ptFilter8000to7500, 15, 16);
+  i = quisk_cfInterpDecim(demod_in, nin8, f->ptFilter8000to7500, 15, 16);
 
   for (i = 0; i < f->nin; i++)
     demod_in[i] = fcmult(1.0 / COHPSK_SCALE, demod_in[i]);
@@ -443,7 +442,7 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
   int Npayloadsymsperpacket = Npayloadbitsperpacket / ofdm->bps;
   int Ndatabitsperpacket = ldpc->data_bits_per_frame;
 
-  complex float *rx_syms = (complex float *)f->rx_syms;
+  COMP *rx_syms = f->rx_syms;
   float *rx_amps = f->rx_amps;
 
   int *rx_bits = (int *)MALLOC(sizeof(int) * Nbitsperframe);
@@ -499,7 +498,7 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
       rx_amps[i] = rx_amps[i + Nsymsperframe];
     }
     memcpy(&rx_syms[Nsymsperpacket - Nsymsperframe], ofdm->rx_np,
-           sizeof(complex float) * Nsymsperframe);
+           sizeof(COMP) * Nsymsperframe);
     memcpy(&rx_amps[Nsymsperpacket - Nsymsperframe], ofdm->rx_amp,
            sizeof(float) * Nsymsperframe);
 

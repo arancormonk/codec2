@@ -17,15 +17,15 @@
 
 #include "filter.h"
 
-#include <complex.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "comp_prim.h"
 #include "debug_alloc.h"
 #include "filter_coef.h"
 
-#define cmplx(value) (cosf(value) + sinf(value) * I)
+#define cmplx(value) comp_exp_j((value))
 
 /*
  * This is a library of filter functions. They were copied from Quisk and
@@ -49,8 +49,8 @@ void quisk_filt_cfInit(struct quisk_cfFilter *filter, float *coefs, int taps) {
   // Coefficients can be real or complex.
   filter->dCoefs = coefs;
   filter->cpxCoefs = NULL;
-  filter->cSamples = (complex float *)MALLOC(taps * sizeof(complex float));
-  memset(filter->cSamples, 0, taps * sizeof(complex float));
+  filter->cSamples = (COMP *)MALLOC(taps * sizeof(COMP));
+  memset(filter->cSamples, 0, taps * sizeof(COMP));
   filter->ptcSamp = filter->cSamples;
   filter->nTaps = taps;
   filter->cBuf = NULL;
@@ -100,15 +100,15 @@ void quisk_filt_destroy(struct quisk_cfFilter *filter) {
 
 \*---------------------------------------------------------------------------*/
 
-int quisk_cfInterpDecim(complex float *cSamples, int count,
+int quisk_cfInterpDecim(COMP *cSamples, int count,
                         struct quisk_cfFilter *filter, int interp, int decim) {
   // Interpolate by interp, and then decimate by decim.
   // This uses the float coefficients of filter (not the complex).  Samples are
   // complex.
   int i, k, nOut;
   float *ptCoef;
-  complex float *ptSample;
-  complex float csample;
+  COMP *ptSample;
+  COMP csample;
 
   if (count > filter->nBuf) {  // increase size of sample buffer
     filter->nBuf = count * 2;
@@ -116,10 +116,10 @@ int quisk_cfInterpDecim(complex float *cSamples, int count,
     if (filter->cBuf) FREE(filter->cBuf);
 
     filter->cBuf =
-        (complex float *)MALLOC(filter->nBuf * sizeof(complex float));
+        (COMP *)MALLOC(filter->nBuf * sizeof(COMP));
   }
 
-  memcpy(filter->cBuf, cSamples, count * sizeof(complex float));
+  memcpy(filter->cBuf, cSamples, count * sizeof(COMP));
   nOut = 0;
 
   for (i = 0; i < count; i++) {
@@ -129,16 +129,17 @@ int quisk_cfInterpDecim(complex float *cSamples, int count,
     while (filter->decim_index < interp) {
       ptSample = filter->ptcSamp;
       ptCoef = filter->dCoefs + filter->decim_index;
-      csample = 0;
+      csample.real = 0.0f;
+      csample.imag = 0.0f;
 
       for (k = 0; k < filter->nTaps / interp; k++, ptCoef += interp) {
-        csample += *ptSample * *ptCoef;
+        csample = cadd(csample, fcmult(*ptCoef, *ptSample));
 
         if (--ptSample < filter->cSamples)
           ptSample = filter->cSamples + filter->nTaps - 1;
       }
 
-      cSamples[nOut] = csample * interp;
+      cSamples[nOut] = fcmult((float)interp, csample);
       nOut++;
       filter->decim_index += decim;
     }
@@ -235,14 +236,14 @@ void quisk_cfTune(struct quisk_cfFilter *filter, float freq) {
 
   if (!filter->cpxCoefs)
     filter->cpxCoefs =
-        (complex float *)MALLOC(filter->nTaps * sizeof(complex float));
+        (COMP *)MALLOC(filter->nTaps * sizeof(COMP));
 
   tune = 2.0 * M_PI * freq;
   D = (filter->nTaps - 1.0) / 2.0;
 
   for (i = 0; i < filter->nTaps; i++) {
     float tval = tune * (i - D);
-    filter->cpxCoefs[i] = cmplx(tval) * filter->dCoefs[i];
+    filter->cpxCoefs[i] = fcmult(filter->dCoefs[i], cmplx(tval));
   }
 }
 
@@ -260,21 +261,22 @@ this does not usually matter.
 
 \*---------------------------------------------------------------------------*/
 
-void quisk_ccfFilter(complex float *inSamples, complex float *outSamples,
-                     int count, struct quisk_cfFilter *filter) {
+void quisk_ccfFilter(COMP *inSamples, COMP *outSamples, int count,
+                     struct quisk_cfFilter *filter) {
   int i, k;
-  complex float *ptSample;
-  complex float *ptCoef;
-  complex float accum;
+  COMP *ptSample;
+  COMP *ptCoef;
+  COMP accum;
 
   for (i = 0; i < count; i++) {
     *filter->ptcSamp = inSamples[i];
-    accum = 0;
+    accum.real = 0.0f;
+    accum.imag = 0.0f;
     ptSample = filter->ptcSamp;
     ptCoef = filter->cpxCoefs;
 
     for (k = 0; k < filter->nTaps; k++, ptCoef++) {
-      accum += *ptSample * *ptCoef;
+      accum = cadd(accum, cmult(*ptSample, *ptCoef));
 
       if (--ptSample < filter->cSamples)
         ptSample = filter->cSamples + filter->nTaps - 1;
