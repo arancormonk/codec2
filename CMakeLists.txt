@@ -112,6 +112,11 @@ endif()
 # Enable debug dump logging in Debug builds on all toolchains.
 add_compile_definitions($<$<CONFIG:Debug>:DUMP>)
 
+if(MSVC)
+    # Enable math constants like M_PI in <math.h>.
+    add_compile_definitions(_USE_MATH_DEFINES)
+endif()
+
 #
 # Setup Windows/MinGW specifics here.
 #

@@ -28,7 +28,12 @@
 #ifndef __MODEMPROBE_H
 #define __MODEMPROBE_H
 
+#if defined(__STDC_NO_COMPLEX__) || (defined(_MSC_VER) && !defined(__clang__))
+#define CODEC2_NO_C99_COMPLEX 1
+#else
+#define CODEC2_NO_C99_COMPLEX 0
 #include <complex.h>
+#endif
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -96,10 +101,12 @@ static inline void modem_probe_samp_c(char *tracename, COMP samp[],
  * float complex samp[] - int samples
  * size_t cnt - how many samples to save
  */
+#if !CODEC2_NO_C99_COMPLEX
 static inline void modem_probe_samp_cft(char *tracename, complex float samp[],
                                         size_t cnt) {
   modem_probe_samp_c_int(tracename, (COMP *)samp, cnt);
 }
+#endif
 
 #else
 
@@ -119,10 +126,12 @@ static inline void modem_probe_samp_c(char *name, COMP samp[], size_t cnt) {
   return;
 }
 
+#if !CODEC2_NO_C99_COMPLEX
 static inline void modem_probe_samp_cft(char *name, complex float samp[],
                                         size_t cnt) {
   return;
 }
+#endif
 
 #endif
 
