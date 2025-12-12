@@ -121,11 +121,13 @@ long quantise(const float *cb, float vec[], float w[], int k, int m, float *se)
 
 void encode_lspds_scalar(int indexes[], float lsp[], int order) {
   int i, k, m;
-  float lsp_hz[order];
-  float lsp__hz[order];
-  float dlsp[order];
-  float dlsp_[order];
-  float wt[order];
+
+  assert(order <= LPC_MAX_ORDER);
+  float lsp_hz[LPC_MAX_ORDER];
+  float lsp__hz[LPC_MAX_ORDER];
+  float dlsp[LPC_MAX_ORDER];
+  float dlsp_[LPC_MAX_ORDER];
+  float wt[LPC_MAX_ORDER];
   const float *cb;
   float se;
 
@@ -162,8 +164,10 @@ void encode_lspds_scalar(int indexes[], float lsp[], int order) {
 
 void decode_lspds_scalar(float lsp_[], int indexes[], int order) {
   int i, k;
-  float lsp__hz[order];
-  float dlsp_[order];
+
+  assert(order <= LPC_MAX_ORDER);
+  float lsp__hz[LPC_MAX_ORDER];
+  float dlsp_[LPC_MAX_ORDER];
   const float *cb;
 
   for (i = 0; i < order; i++) {
@@ -230,8 +234,10 @@ int find_nearest_weighted(const float *codebook, int nb_entries, float *x,
 
 void lspjmv_quantise(float *x, float *xq, int order) {
   int i, n1, n2, n3;
-  float err[order], err2[order], err3[order];
-  float w[order], w2[order], w3[order];
+
+  assert(order <= LPC_MAX_ORDER);
+  float err[LPC_MAX_ORDER], err2[LPC_MAX_ORDER], err3[LPC_MAX_ORDER];
+  float w[LPC_MAX_ORDER], w2[LPC_MAX_ORDER], w3[LPC_MAX_ORDER];
   const float *codebook1 = lsp_cbjmv[0].cb;
   const float *codebook2 = lsp_cbjmv[1].cb;
   const float *codebook3 = lsp_cbjmv[2].cb;
@@ -653,8 +659,11 @@ float decode_log_Wo(C2CONST *c2const, int index, int bits) {
 float speech_to_uq_lsps(float lsp[], float ak[], float Sn[], float w[],
                         int m_pitch, int order) {
   int i, roots;
-  float Wn[m_pitch];
-  float R[order + 1];
+
+  assert(order <= LPC_MAX_ORDER);
+  float *Wn = (float *)malloc(sizeof(float) * m_pitch);
+  assert(Wn != NULL);
+  float R[LPC_MAX_ORDER + 1];
   float e, E;
 
   e = 0.0;
@@ -667,6 +676,7 @@ float speech_to_uq_lsps(float lsp[], float ak[], float Sn[], float w[],
 
   if (e == 0.0) {
     for (i = 0; i < order; i++) lsp[i] = (PI / order) * (float)i;
+    free(Wn);
     return 0.0;
   }
 
@@ -689,6 +699,7 @@ float speech_to_uq_lsps(float lsp[], float ak[], float Sn[], float w[],
     for (i = 0; i < order; i++) lsp[i] = (PI / order) * (float)i;
   }
 
+  free(Wn);
   return E;
 }
 
@@ -705,8 +716,10 @@ float speech_to_uq_lsps(float lsp[], float ak[], float Sn[], float w[],
 
 void encode_lsps_scalar(int indexes[], float lsp[], int order) {
   int i, k, m;
+
+  assert(order <= LPC_MAX_ORDER);
   float wt[1];
-  float lsp_hz[order];
+  float lsp_hz[LPC_MAX_ORDER];
   const float *cb;
   float se;
 
@@ -739,7 +752,9 @@ void encode_lsps_scalar(int indexes[], float lsp[], int order) {
 
 void decode_lsps_scalar(float lsp[], int indexes[], int order) {
   int i, k;
-  float lsp_hz[order];
+
+  assert(order <= LPC_MAX_ORDER);
+  float lsp_hz[LPC_MAX_ORDER];
   const float *cb;
 
   for (i = 0; i < order; i++) {
@@ -765,8 +780,10 @@ void decode_lsps_scalar(float lsp[], int indexes[], int order) {
 
 void encode_lsps_vq(int *indexes, float *x, float *xq, int order) {
   int i, n1, n2, n3;
-  float err[order], err2[order], err3[order];
-  float w[order], w2[order], w3[order];
+
+  assert(order <= LPC_MAX_ORDER);
+  float err[LPC_MAX_ORDER], err2[LPC_MAX_ORDER], err3[LPC_MAX_ORDER];
+  float w[LPC_MAX_ORDER], w2[LPC_MAX_ORDER], w3[LPC_MAX_ORDER];
   const float *codebook1 = lsp_cbjmv[0].cb;
   const float *codebook2 = lsp_cbjmv[1].cb;
   const float *codebook3 = lsp_cbjmv[2].cb;

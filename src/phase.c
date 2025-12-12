@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "debug_alloc.h"
+
 #include "comp.h"
 #include "comp_prim.h"
 #include "defines.h"
@@ -225,7 +227,11 @@ void mag_to_phase(
     float phase[], /* Nfft/2+1 output phase samples in radians       */
     float Gdbfk[], /* Nfft/2+1 positive freq amplitudes samples in dB */
     int Nfft, codec2_fft_cfg fft_fwd_cfg, codec2_fft_cfg fft_inv_cfg) {
-  COMP Sdb[Nfft], c[Nfft], cf[Nfft], Cf[Nfft];
+  COMP *Sdb = (COMP *)MALLOC(sizeof(COMP) * Nfft);
+  COMP *c = (COMP *)MALLOC(sizeof(COMP) * Nfft);
+  COMP *cf = (COMP *)MALLOC(sizeof(COMP) * Nfft);
+  COMP *Cf = (COMP *)MALLOC(sizeof(COMP) * Nfft);
+  assert(Sdb && c && cf && Cf);
   int Ns = Nfft / 2 + 1;
   int i;
 
@@ -272,4 +278,9 @@ void mag_to_phase(
   for (i = 0; i < Ns; i++) {
     phase[i] = Cf[i].imag / scale;
   }
+
+  FREE(Sdb);
+  FREE(c);
+  FREE(cf);
+  FREE(Cf);
 }

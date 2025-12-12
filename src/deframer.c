@@ -75,12 +75,17 @@ int main(int argc, char *argv[]) {
 
   size_t framesize = atoi(argv[3]);
   char *uw_hex = argv[4];
-  uint8_t uw[4 * strlen(uw_hex)];
-  int uwsize = 0;
+  int uwsize = 4 * strlen(uw_hex);
+  uint8_t *uw = (uint8_t *)malloc(uwsize);
+  if (uw == NULL) {
+    fprintf(stderr, "failed to allocate uw\n");
+    exit(1);
+  }
+  int uwbit = 0;
   for (int c = 0; c < strlen(uw_hex); c++)
     for (int i = 0; i < 4; i++)
-      uw[uwsize++] = (toInt(uw_hex[c]) >> (3 - i)) & 0x1; /* MSB first */
-  assert(uwsize == 4 * strlen(uw_hex));
+      uw[uwbit++] = (toInt(uw_hex[c]) >> (3 - i)) & 0x1; /* MSB first */
+  assert(uwbit == uwsize);
 
   fprintf(stderr, "uw_hex: %s uwsize: %d\n", uw_hex, uwsize);
   for (int i = 0; i < uwsize; i++) fprintf(stderr, "%d ", uw[i]);
@@ -101,7 +106,8 @@ int main(int argc, char *argv[]) {
 
   /* main loop */
 
-  uint8_t twoframes[2 * framedsize];
+  uint8_t *twoframes = (uint8_t *)malloc(2 * framedsize);
+  assert(twoframes != NULL);
   memset(twoframes, 0, 2 * framedsize);
   int state = 0;
   int thresh1 = 0.1 * uwsize;
@@ -174,6 +180,8 @@ int main(int argc, char *argv[]) {
     memmove(inbuf, &inbuf[nelement * framedsize], nelement * framedsize);
   }
 
+  free(twoframes);
+  free(uw);
   free(inbuf);
   fclose(fin);
   fclose(fout);

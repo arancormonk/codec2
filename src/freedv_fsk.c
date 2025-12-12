@@ -411,7 +411,8 @@ void freedv_tx_fsk_ldpc_framer(struct freedv *f, uint8_t frame[],
 /* FreeDV FSK_LDPC mode tx */
 void freedv_tx_fsk_ldpc_data(struct freedv *f, COMP mod_out[]) {
   int bits_per_frame = freedv_tx_fsk_ldpc_bits_per_frame(f);
-  uint8_t frame[bits_per_frame];
+  uint8_t *frame = (uint8_t *)MALLOC(bits_per_frame);
+  assert(frame != NULL);
 
   assert(f->mode == FREEDV_MODE_FSK_LDPC);
 
@@ -423,13 +424,16 @@ void freedv_tx_fsk_ldpc_data(struct freedv *f, COMP mod_out[]) {
     mod_out[i].real *= f->tx_amp;
     mod_out[i].imag *= f->tx_amp;
   }
+
+  FREE(frame);
 }
 
 void freedv_tx_fsk_ldpc_data_preamble(struct freedv *f, COMP mod_out[],
                                       int npreamble_bits,
                                       int npreamble_samples) {
   struct FSK *fsk = f->fsk;
-  uint8_t preamble[npreamble_bits];
+  uint8_t *preamble = (uint8_t *)MALLOC(npreamble_bits);
+  assert(preamble != NULL);
   // cycle through all 2 and 4FSK symbols, not sure if this is better than
   // random
   int sym = 0;
@@ -445,13 +449,17 @@ void freedv_tx_fsk_ldpc_data_preamble(struct freedv *f, COMP mod_out[],
     mod_out[i].real *= f->tx_amp;
     mod_out[i].imag *= f->tx_amp;
   }
+
+  FREE(preamble);
 }
 
 /* FreeDV FSK_LDPC mode rx */
 int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
   int bits_per_frame = freedv_tx_fsk_ldpc_bits_per_frame(f);
   struct FSK *fsk = f->fsk;
-  float rx_filt[fsk->mode * fsk->Nsym];
+  int rx_filt_size = fsk->mode * fsk->Nsym;
+  float *rx_filt = (float *)MALLOC(sizeof(float) * rx_filt_size);
+  assert(rx_filt != NULL);
   int rx_status = 0, seq = 0;
 
   /* Couple of layers of buffers to move chunks of fsk->Nbits into a
@@ -551,12 +559,15 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
       /* We may have a valid frame, based on the number on UW errors.  Lets do a
        * LDPC decode and check the CRC */
 
-      uint8_t decoded_codeword[f->ldpc->ldpc_coded_bits_per_frame];
+      uint8_t *decoded_codeword =
+          (uint8_t *)MALLOC(f->ldpc->ldpc_coded_bits_per_frame);
+      assert(decoded_codeword != NULL);
       iter = run_ldpc_decoder(
           f->ldpc, decoded_codeword,
           &f->twoframes_llr[f->fsk_ldpc_best_location + sizeof(fsk_ldpc_uw)],
           &parityCheckCount);
       memcpy(f->rx_payload_bits, decoded_codeword, f->bits_per_modem_frame);
+      FREE(decoded_codeword);
 
       /* check CRC */
       if (freedv_check_crc16_unpacked(f->rx_payload_bits,
@@ -574,12 +585,15 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
     if (f->fsk_ldpc_state == 1) {
       if (f->test_frames) {
         /* regenerate tx test frame */
-        uint8_t tx_frame[bits_per_frame];
+        uint8_t *tx_frame = (uint8_t *)MALLOC(bits_per_frame);
+        assert(tx_frame != NULL);
         memcpy(tx_frame, fsk_ldpc_uw, sizeof(fsk_ldpc_uw));
         ofdm_generate_payload_data_bits(tx_frame + sizeof(fsk_ldpc_uw),
                                         f->bits_per_modem_frame);
         int bytes_per_modem_frame = f->bits_per_modem_frame / 8;
-        uint8_t tx_bytes[bytes_per_modem_frame];
+        uint8_t *tx_bytes =
+            (uint8_t *)MALLOC(bytes_per_modem_frame);
+        assert(tx_bytes != NULL);
         freedv_pack(tx_bytes, tx_frame + sizeof(fsk_ldpc_uw),
                     f->bits_per_modem_frame);
         uint16_t tx_crc16 =
@@ -605,6 +619,9 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
         f->total_bits_coded += f->bits_per_modem_frame;
         if (Nerrs_coded) f->total_packet_errors++;
         f->total_packets++;
+
+        FREE(tx_bytes);
+        FREE(tx_frame);
       }
 
       /* extract packet sequence numbers optionally placed in byte[0] */
@@ -631,6 +648,7 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
     if (f->fsk_ldpc_state == 1) rx_status |= FREEDV_RX_SYNC;
   }
 
+  FREE(rx_filt);
   return rx_status;
 }
 
@@ -657,7 +675,8 @@ int freedv_comprx_fsk(struct freedv *f, COMP demod_in[]) {
   } else {
     /* 2400B needs real input samples */
     int n = fmfsk_nin(f->fmfsk);
-    float demod_in_float[n];
+    float *demod_in_float = (float *)MALLOC(sizeof(float) * n);
+    assert(demod_in_float != NULL);
     for (i = 0; i < n; i++) {
       demod_in_float[i] = demod_in[i].real;
     }
@@ -666,6 +685,8 @@ int freedv_comprx_fsk(struct freedv *f, COMP demod_in[]) {
        the mapping to SNR in 8k is hard to determine */
     f->snr_est = f->fmfsk->snr_mean;
     f->nin = fmfsk_nin(f->fmfsk);
+
+    FREE(demod_in_float);
   }
 
   rx_status = fvhff_deframe_bits(f->deframer, f->rx_payload_bits, proto_bits,
@@ -700,11 +721,15 @@ int freedv_floatrx(struct freedv *f, short speech_out[], float demod_in[]) {
 
   assert(nin <= f->n_max_modem_samples);
 
-  COMP rx_fdm[f->n_max_modem_samples];
+  COMP *rx_fdm =
+      (COMP *)MALLOC(sizeof(COMP) * f->n_max_modem_samples);
+  assert(rx_fdm != NULL);
   for (i = 0; i < nin; i++) {
     rx_fdm[i].real = demod_in[i];
     rx_fdm[i].imag = 0;
   }
 
-  return freedv_comprx(f, speech_out, rx_fdm);
+  int ret = freedv_comprx(f, speech_out, rx_fdm);
+  FREE(rx_fdm);
+  return ret;
 }

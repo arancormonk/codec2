@@ -596,7 +596,9 @@ void Somap(float bit_likelihood[],    /* number_bits, bps*number_symbols */
            int bps,                   /* bits per symbol                 */
            int number_symbols) {
   int n, i, j, k, mask;
-  float num[bps], den[bps];
+  float *num = (float *)MALLOC(sizeof(float) * bps);
+  float *den = (float *)MALLOC(sizeof(float) * bps);
+  assert(num && den);
   float metric;
 
   for (n = 0; n < number_symbols; n++) { /* loop over symbols */
@@ -604,6 +606,7 @@ void Somap(float bit_likelihood[],    /* number_bits, bps*number_symbols */
       /* initialize */
       num[k] = -1000000;
       den[k] = -1000000;
+
     }
 
     for (i = 0; i < M; i++) {
@@ -631,14 +634,20 @@ void Somap(float bit_likelihood[],    /* number_bits, bps*number_symbols */
       bit_likelihood[bps * n + k] = num[k] - den[k];
     }
   }
+
+  FREE(num);
+  FREE(den);
 }
 
 void symbols_to_llrs(float llr[], COMP rx_qpsk_symbols[], float rx_amps[],
                      float EsNo, float mean_amp, int nsyms) {
   int i;
 
-  float symbol_likelihood[nsyms * QPSK_CONSTELLATION_SIZE];
-  float bit_likelihood[nsyms * QPSK_BITS_PER_SYMBOL];
+  int symbol_len = nsyms * QPSK_CONSTELLATION_SIZE;
+  float *symbol_likelihood = (float *)MALLOC(sizeof(float) * symbol_len);
+  int bit_len = nsyms * QPSK_BITS_PER_SYMBOL;
+  float *bit_likelihood = (float *)MALLOC(sizeof(float) * bit_len);
+  assert(symbol_likelihood && bit_likelihood);
 
   Demod2D(symbol_likelihood, rx_qpsk_symbols, S_matrix, EsNo, rx_amps, mean_amp,
           nsyms);
@@ -646,7 +655,11 @@ void symbols_to_llrs(float llr[], COMP rx_qpsk_symbols[], float rx_amps[],
         QPSK_BITS_PER_SYMBOL, nsyms);
   for (i = 0; i < nsyms * QPSK_BITS_PER_SYMBOL; i++) {
     llr[i] = -bit_likelihood[i];
+
   }
+
+  FREE(symbol_likelihood);
+  FREE(bit_likelihood);
 }
 
 /*
@@ -724,14 +737,21 @@ void fsk_rx_filt_to_llrs(float llr[], float rx_filt[], float v_est,
                          float SNRest, int M, int nsyms) {
   int i;
   int bps = log2(M);
-  float symbol_likelihood[M * nsyms];
-  float bit_likelihood[bps * nsyms];
+  int symbol_len = M * nsyms;
+  float *symbol_likelihood = (float *)MALLOC(sizeof(float) * symbol_len);
+  int bit_len = bps * nsyms;
+  float *bit_likelihood = (float *)MALLOC(sizeof(float) * bit_len);
+  assert(symbol_likelihood && bit_likelihood);
 
   FskDemod(symbol_likelihood, rx_filt, v_est, SNRest, M, nsyms);
   Somap(bit_likelihood, symbol_likelihood, M, bps, nsyms);
   for (i = 0; i < bps * nsyms; i++) {
     llr[i] = -bit_likelihood[i];
+
   }
+
+  FREE(symbol_likelihood);
+  FREE(bit_likelihood);
 }
 
 void ldpc_print_info(struct LDPC *ldpc) {

@@ -8,7 +8,11 @@
 #ifndef DEBUG_ALLOC_H
 #define DEBUG_ALLOC_H
 
+#include <stddef.h>
 #include <stdio.h>
+#ifndef __EMBEDDED__
+#include <stdlib.h>
+#endif
 
 // Debug calls
 

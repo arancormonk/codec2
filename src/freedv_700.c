@@ -86,7 +86,8 @@ void freedv_700c_open(struct freedv *f) {
 
 void freedv_comptx_700c(struct freedv *f, COMP mod_out[]) {
   int i;
-  COMP tx_fdm[f->n_nat_modem_samples];
+  assert(f->n_nat_modem_samples <= COHPSK_NOM_SAMPLES_PER_FRAME);
+  COMP tx_fdm[COHPSK_NOM_SAMPLES_PER_FRAME];
   int tx_bits[COHPSK_BITS_PER_FRAME];
 
   /* earlier modems used one bit per int for unpacked bits */
@@ -263,7 +264,11 @@ void freedv_comptx_ofdm(struct freedv *f, COMP mod_out[]) {
 
   /* Generate Varicode txt bits (if used), waren't protected by FEC */
   nspare = f->ofdm_ntxtbits;
-  uint8_t txt_bits[nspare];
+  uint8_t *txt_bits = NULL;
+  if (nspare > 0) {
+    txt_bits = (uint8_t *)MALLOC(nspare);
+    assert(txt_bits != NULL);
+  }
 
   for (k = 0; k < nspare; k++) {
     if (f->nvaricode_bits == 0) {
@@ -286,17 +291,24 @@ void freedv_comptx_ofdm(struct freedv *f, COMP mod_out[]) {
 
   /* optionally replace payload bits with test frames known to rx */
   if (f->test_frames) {
-    uint8_t payload_data_bits[f->bits_per_modem_frame];
-    ofdm_generate_payload_data_bits(payload_data_bits, f->bits_per_modem_frame);
+    uint8_t *payload_data_bits =
+        (uint8_t *)MALLOC(f->bits_per_modem_frame);
+    assert(payload_data_bits != NULL);
+    ofdm_generate_payload_data_bits(payload_data_bits,
+                                    f->bits_per_modem_frame);
 
     for (i = 0; i < f->bits_per_modem_frame; i++) {
       f->tx_payload_bits[i] = payload_data_bits[i];
     }
+
+    FREE(payload_data_bits);
   }
 
   /* OK now ready to LDPC encode, interleave, and OFDM modulate */
   ofdm_ldpc_interleave_tx(f->ofdm, f->ldpc, (complex float *)mod_out,
                           f->tx_payload_bits, txt_bits);
+
+  FREE(txt_bits);
 }
 
 int freedv_comprx_700c(struct freedv *f, COMP demod_in_8kHz[]) {
@@ -311,11 +323,13 @@ int freedv_comprx_700c(struct freedv *f, COMP demod_in_8kHz[]) {
   // freedv_nin(f): input samples at Fs=8000 Hz
   // f->nin: input samples at Fs=7500 Hz
 
-  COMP demod_in[freedv_nin(f)];
+  int nin8 = freedv_nin(f);
+  COMP *demod_in = (COMP *)MALLOC(sizeof(COMP) * nin8);
+  assert(demod_in != NULL);
 
-  for (i = 0; i < freedv_nin(f); i++) demod_in[i] = demod_in_8kHz[i];
+  for (i = 0; i < nin8; i++) demod_in[i] = demod_in_8kHz[i];
 
-  i = quisk_cfInterpDecim((complex float *)demod_in, freedv_nin(f),
+  i = quisk_cfInterpDecim((complex float *)demod_in, nin8,
                           f->ptFilter8000to7500, 15, 16);
 
   for (i = 0; i < f->nin; i++)
@@ -402,6 +416,7 @@ int freedv_comprx_700c(struct freedv *f, COMP demod_in_8kHz[]) {
     }
   }
 
+  FREE(demod_in);
   return rx_status;
 }
 
@@ -431,16 +446,26 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
   complex float *rx_syms = (complex float *)f->rx_syms;
   float *rx_amps = f->rx_amps;
 
-  int rx_bits[Nbitsperframe];
-  short txt_bits[f->ofdm_ntxtbits];
-  COMP payload_syms[Npayloadsymsperpacket];
-  float payload_amps[Npayloadsymsperpacket];
+  int *rx_bits = (int *)MALLOC(sizeof(int) * Nbitsperframe);
+  assert(rx_bits != NULL);
+  short *txt_bits = NULL;
+  if (f->ofdm_ntxtbits > 0) {
+    txt_bits = (short *)MALLOC(sizeof(short) * f->ofdm_ntxtbits);
+    assert(txt_bits != NULL);
+  }
+  COMP *payload_syms =
+      (COMP *)MALLOC(sizeof(COMP) * Npayloadsymsperpacket);
+  float *payload_amps =
+      (float *)MALLOC(sizeof(float) * Npayloadsymsperpacket);
+  assert(payload_syms != NULL);
+  assert(payload_amps != NULL);
 
   int Nerrs_raw = 0;
   int Nerrs_coded = 0;
   int iter = 0;
   int parityCheckCount = 0;
-  uint8_t rx_uw[f->ofdm_nuwbits];
+  uint8_t *rx_uw = (uint8_t *)MALLOC(f->ofdm_nuwbits);
+  assert(rx_uw != NULL);
 
   float new_gain = gain / f->ofdm->amp_scale;
 
@@ -494,15 +519,23 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
           ofdm, rx_syms, rx_amps, payload_syms, payload_amps, txt_bits,
           &txt_sym_index);
 
-      COMP payload_syms_de[Npayloadsymsperpacket];
-      float payload_amps_de[Npayloadsymsperpacket];
+      COMP *payload_syms_de =
+          (COMP *)MALLOC(sizeof(COMP) * Npayloadsymsperpacket);
+      float *payload_amps_de =
+          (float *)MALLOC(sizeof(float) * Npayloadsymsperpacket);
+      assert(payload_syms_de != NULL);
+      assert(payload_amps_de != NULL);
       gp_deinterleave_comp(payload_syms_de, payload_syms,
                            Npayloadsymsperpacket);
       gp_deinterleave_float(payload_amps_de, payload_amps,
                             Npayloadsymsperpacket);
 
-      float llr[Npayloadbitsperpacket];
-      uint8_t decoded_codeword[Npayloadbitsperpacket];
+      float *llr =
+          (float *)MALLOC(sizeof(float) * Npayloadbitsperpacket);
+      uint8_t *decoded_codeword =
+          (uint8_t *)MALLOC(Npayloadbitsperpacket);
+      assert(llr != NULL);
+      assert(decoded_codeword != NULL);
       symbols_to_llrs(llr, payload_syms_de, payload_amps_de, EsNo,
                       ofdm->mean_amp, Npayloadsymsperpacket);
       ldpc_decode_frame(ldpc, &parityCheckCount, &iter, decoded_codeword, llr);
@@ -532,8 +565,11 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
         f->total_bits += Npayloadbitsperpacket;
 
         /* coded errors from decoded bits */
-        uint8_t payload_data_bits[Ndatabitsperpacket];
-        ofdm_generate_payload_data_bits(payload_data_bits, Ndatabitsperpacket);
+        uint8_t *payload_data_bits =
+            (uint8_t *)MALLOC(Ndatabitsperpacket);
+        assert(payload_data_bits != NULL);
+        ofdm_generate_payload_data_bits(payload_data_bits,
+                                        Ndatabitsperpacket);
         if (strlen(ofdm->data_mode)) {
           uint16_t tx_crc16 =
               freedv_crc16_unpacked(payload_data_bits, Ndatabitsperpacket - 16);
@@ -547,6 +583,8 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
         f->total_bits_coded += Ndatabitsperpacket;
         if (Nerrs_coded) f->total_packet_errors++;
         f->total_packets++;
+
+        FREE(payload_data_bits);
       }
 
       /* decode txt bits (if used) */
@@ -566,6 +604,11 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
 
       ofdm_get_demod_stats(ofdm, &f->stats, rx_syms, Nsymsperpacket);
       f->snr_est = f->stats.snr_est;
+
+      FREE(decoded_codeword);
+      FREE(llr);
+      FREE(payload_amps_de);
+      FREE(payload_syms_de);
     } /* complete packet */
 
     if ((ofdm->np == 1) && (ofdm->modem_frame == 0)) {
@@ -615,5 +658,10 @@ int freedv_comp_short_rx_ofdm(struct freedv *f, void *demod_in_8kHz,
             rx_sync_flags_to_text[rx_status]);
   }
 
+  FREE(rx_uw);
+  FREE(payload_amps);
+  FREE(payload_syms);
+  FREE(txt_bits);
+  FREE(rx_bits);
   return rx_status;
 }

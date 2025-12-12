@@ -69,7 +69,9 @@ void freedv_1600_open(struct freedv *f) {
 void freedv_comptx_fdmdv_1600(struct freedv *f, COMP mod_out[]) {
   int i, j;
   int data, codeword1, data_flag_index;
-  COMP tx_fdm[f->n_nat_modem_samples];
+  COMP *tx_fdm =
+      (COMP *)MALLOC(sizeof(COMP) * f->n_nat_modem_samples);
+  assert(tx_fdm != NULL);
 
   // spare bit in frame that codec defines.  Use this 1
   // bit/frame to send txt messages
@@ -144,6 +146,8 @@ void freedv_comptx_fdmdv_1600(struct freedv *f, COMP mod_out[]) {
 
   for (i = 0; i < f->n_nom_modem_samples; i++)
     mod_out[i] = fcmult(FDMDV_SCALE, tx_fdm[i]);
+
+  FREE(tx_fdm);
 }
 
 int freedv_comprx_fdmdv_1600(struct freedv *f, COMP demod_in[]) {
@@ -155,7 +159,8 @@ int freedv_comprx_fdmdv_1600(struct freedv *f, COMP demod_in[]) {
   int reliable_sync_bit;
   int rx_status = 0;
 
-  COMP ademod_in[f->nin];
+  COMP *ademod_in = (COMP *)MALLOC(sizeof(COMP) * f->nin);
+  assert(ademod_in != NULL);
   for (i = 0; i < f->nin; i++)
     ademod_in[i] = fcmult(1.0 / FDMDV_SCALE, demod_in[i]);
 
@@ -227,7 +232,10 @@ int freedv_comprx_fdmdv_1600(struct freedv *f, COMP demod_in[]) {
         rx_status |= FREEDV_RX_BITS;
       } else {
         int test_frame_sync, bit_errors, ntest_bits, k;
-        short error_pattern[fdmdv_error_pattern_size(f->fdmdv)];
+        int error_pattern_size = fdmdv_error_pattern_size(f->fdmdv);
+        short *error_pattern =
+            (short *)MALLOC(sizeof(short) * error_pattern_size);
+        assert(error_pattern != NULL);
 
         for (k = 0; k < 2; k++) {
           /* test frames, so lets sync up to the test frames and count any
@@ -249,13 +257,15 @@ int freedv_comprx_fdmdv_1600(struct freedv *f, COMP demod_in[]) {
               if (f->freedv_put_error_pattern != NULL) {
                 (*f->freedv_put_error_pattern)(
                     f->error_pattern_callback_state, error_pattern,
-                    fdmdv_error_pattern_size(f->fdmdv));
+                    error_pattern_size);
               }
             }
             f->test_frame_count++;
             if (f->test_frame_count == 4) f->test_frame_count = 0;
           }
         }
+
+        FREE(error_pattern);
       } /* if (test_frames == 0) .... */
     }
 
@@ -268,5 +278,6 @@ int freedv_comprx_fdmdv_1600(struct freedv *f, COMP demod_in[]) {
 
   } /* if (sync) .... */
 
+  FREE(ademod_in);
   return rx_status;
 }

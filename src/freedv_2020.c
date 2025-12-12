@@ -155,7 +155,8 @@ void freedv_comptx_2020(struct freedv *f, COMP mod_out[]) {
   int i, k;
 
   int data_bits_per_frame = f->ldpc->data_bits_per_frame;
-  uint8_t tx_bits[data_bits_per_frame];
+  uint8_t *tx_bits = (uint8_t *)MALLOC(data_bits_per_frame);
+  assert(tx_bits != NULL);
 
   memcpy(tx_bits, f->tx_payload_bits, data_bits_per_frame);
 
@@ -164,7 +165,11 @@ void freedv_comptx_2020(struct freedv *f, COMP mod_out[]) {
   // added to each frame after interleaver as done it's thing
 
   int nspare = f->ofdm_ntxtbits;
-  uint8_t txt_bits[nspare];
+  uint8_t *txt_bits = NULL;
+  if (nspare > 0) {
+    txt_bits = (uint8_t *)MALLOC(nspare);
+    assert(txt_bits != NULL);
+  }
 
   for (k = 0; k < nspare; k++) {
     if (f->nvaricode_bits == 0) {
@@ -188,17 +193,25 @@ void freedv_comptx_2020(struct freedv *f, COMP mod_out[]) {
   /* optionally replace codec payload bits with test frames known to rx */
 
   if (f->test_frames) {
-    uint8_t payload_data_bits[data_bits_per_frame];
-    ofdm_generate_payload_data_bits(payload_data_bits, data_bits_per_frame);
+    uint8_t *payload_data_bits =
+        (uint8_t *)MALLOC(data_bits_per_frame);
+    assert(payload_data_bits != NULL);
+    ofdm_generate_payload_data_bits(payload_data_bits,
+                                    data_bits_per_frame);
 
     for (i = 0; i < data_bits_per_frame; i++) {
       tx_bits[i] = payload_data_bits[i];
     }
+
+    FREE(payload_data_bits);
   }
 
   /* OK now ready to LDPC encode, interleave, and OFDM modulate */
   ofdm_ldpc_interleave_tx(f->ofdm, f->ldpc, (complex float *)mod_out, tx_bits,
                           txt_bits);
+
+  FREE(txt_bits);
+  FREE(tx_bits);
 }
 
 int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
@@ -213,10 +226,20 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
   int coded_syms_per_frame = ldpc->coded_bits_per_frame / ofdm->bps;
   COMP *codeword_symbols = f->codeword_symbols;
   float *codeword_amps = f->codeword_amps;
-  int rx_bits[f->ofdm_bitsperframe];
-  short txt_bits[f->ofdm_ntxtbits];
-  COMP payload_syms[coded_syms_per_frame];
-  float payload_amps[coded_syms_per_frame];
+  int *rx_bits =
+      (int *)MALLOC(sizeof(int) * f->ofdm_bitsperframe);
+  assert(rx_bits != NULL);
+  short *txt_bits = NULL;
+  if (f->ofdm_ntxtbits > 0) {
+    txt_bits = (short *)MALLOC(sizeof(short) * f->ofdm_ntxtbits);
+    assert(txt_bits != NULL);
+  }
+  COMP *payload_syms =
+      (COMP *)MALLOC(sizeof(COMP) * coded_syms_per_frame);
+  float *payload_amps =
+      (float *)MALLOC(sizeof(float) * coded_syms_per_frame);
+  assert(payload_syms != NULL);
+  assert(payload_amps != NULL);
 
   int rx_status = 0;
 
@@ -225,7 +248,9 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
   int Ncoded;
   int iter = 0;
   int parityCheckCount = 0;
-  uint8_t rx_uw[f->ofdm_nuwbits];
+  uint8_t *rx_uw = (uint8_t *)MALLOC(f->ofdm_nuwbits);
+  assert(rx_uw != NULL);
+  memset(rx_uw, 0, f->ofdm_nuwbits);
 
   f->sync = 0;
 
@@ -268,16 +293,24 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
 
     /* run de-interleaver */
 
-    COMP codeword_symbols_de[coded_syms_per_frame];
-    float codeword_amps_de[coded_syms_per_frame];
+    COMP *codeword_symbols_de =
+        (COMP *)MALLOC(sizeof(COMP) * coded_syms_per_frame);
+    float *codeword_amps_de =
+        (float *)MALLOC(sizeof(float) * coded_syms_per_frame);
+    assert(codeword_symbols_de != NULL);
+    assert(codeword_amps_de != NULL);
 
     gp_deinterleave_comp(codeword_symbols_de, codeword_symbols,
                          coded_syms_per_frame);
     gp_deinterleave_float(codeword_amps_de, codeword_amps,
                           coded_syms_per_frame);
 
-    float llr[coded_bits_per_frame];
-    uint8_t out_char[coded_bits_per_frame];
+    float *llr =
+        (float *)MALLOC(sizeof(float) * coded_bits_per_frame);
+    uint8_t *out_char =
+        (uint8_t *)MALLOC(coded_bits_per_frame);
+    assert(llr != NULL);
+    assert(out_char != NULL);
 
     if (f->test_frames) {
       Nerrs_raw =
@@ -293,8 +326,11 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
       rx_status |= FREEDV_RX_BIT_ERRORS;
 
     if (f->test_frames) {
-      uint8_t payload_data_bits[data_bits_per_frame];
-      ofdm_generate_payload_data_bits(payload_data_bits, data_bits_per_frame);
+      uint8_t *payload_data_bits =
+          (uint8_t *)MALLOC(data_bits_per_frame);
+      assert(payload_data_bits != NULL);
+      ofdm_generate_payload_data_bits(payload_data_bits,
+                                      data_bits_per_frame);
       count_errors_protection_mode(ldpc->protection_mode, &Nerrs_coded, &Ncoded,
                                    payload_data_bits, out_char,
                                    data_bits_per_frame);
@@ -302,6 +338,8 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
       f->total_bits_coded += Ncoded;
       if (Nerrs_coded) f->total_packet_errors++;
       f->total_packets++;
+
+      FREE(payload_data_bits);
     } else {
       memcpy(f->rx_payload_bits, out_char, data_bits_per_frame);
     }
@@ -340,6 +378,11 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
     ofdm_get_demod_stats(f->ofdm, &f->stats, ofdm->rx_np,
                          ofdm->rowsperframe * ofdm->nc);
     f->snr_est = f->stats.snr_est;
+
+    FREE(out_char);
+    FREE(llr);
+    FREE(codeword_amps_de);
+    FREE(codeword_symbols_de);
   }
 
   /* iterate state machine and update nin for next call */
@@ -358,6 +401,11 @@ int freedv_comprx_2020(struct freedv *f, COMP demod_in[]) {
             parityCheckCount, rx_sync_flags_to_text[rx_status]);
   }
 
+  FREE(rx_uw);
+  FREE(payload_amps);
+  FREE(payload_syms);
+  FREE(txt_bits);
+  FREE(rx_bits);
   return rx_status;
 }
 #endif

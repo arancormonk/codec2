@@ -29,6 +29,7 @@
 */
 
 #include "gp_interleaver.h"
+#include "debug_alloc.h"
 
 #include <assert.h>
 #include <math.h>
@@ -101,7 +102,8 @@ void gp_deinterleave_float(float frame[], float interleaved_frame[],
 // The above work on complex numbers (e.g. OFDM symbols), so the below work on
 // groups of two bits at a time to remain compatible with the above.
 void gp_interleave_bits(char interleaved_frame[], char frame[], int Nbits) {
-  char temp[Nbits];
+  char *temp = (char *)MALLOC(Nbits);
+  assert(temp != NULL);
   int b = choose_interleaver_b(Nbits);
   int i, j;
 
@@ -114,10 +116,13 @@ void gp_interleave_bits(char interleaved_frame[], char frame[], int Nbits) {
     interleaved_frame[i * 2] = temp[i] >> 1;
     interleaved_frame[i * 2 + 1] = temp[i] & 1;
   }
+
+  FREE(temp);
 }
 
 void gp_deinterleave_bits(char frame[], char interleaved_frame[], int Nbits) {
-  char temp[Nbits];
+  char *temp = (char *)MALLOC(Nbits);
+  assert(temp != NULL);
   int b = choose_interleaver_b(Nbits);
   int i, j;
 
@@ -131,4 +136,6 @@ void gp_deinterleave_bits(char frame[], char interleaved_frame[], int Nbits) {
     frame[i * 2] = temp[i] >> 1;
     frame[i * 2 + 1] = temp[i] & 1;
   }
+
+  FREE(temp);
 }

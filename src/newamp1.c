@@ -171,13 +171,14 @@ float rate_K_mbest_encode(int *indexes, float *x, float *xq, int ndim,
   const float *codebook1 = newamp1vq_cb[0].cb;
   const float *codebook2 = newamp1vq_cb[1].cb;
   struct MBEST *mbest_stage1, *mbest_stage2;
-  float target[ndim];
+  float target[NEWAMP1_K];
   int index[MBEST_STAGES];
   float mse, tmp;
 
   /* codebook is compiled for a fixed K */
 
   assert(ndim == newamp1vq_cb[0].k);
+  assert(ndim <= NEWAMP1_K);
 
   mbest_stage1 = mbest_create(mbest_entries);
   mbest_stage2 = mbest_create(mbest_entries);
@@ -232,6 +233,7 @@ float rate_K_mbest_encode(int *indexes, float *x, float *xq, int ndim,
 void post_filter_newamp1(float vec[], float sample_freq_kHz[], int K,
                          float pf_gain) {
   int k;
+  assert(K <= NEWAMP1_K);
 
   /*
     vec is rate K vector describing spectrum of current frame lets
@@ -240,7 +242,7 @@ void post_filter_newamp1(float vec[], float sample_freq_kHz[], int K,
     and normalise.  Plenty of room for experimentation here.
   */
 
-  float pre[K];
+  float pre[NEWAMP1_K];
   float e_before = 0.0;
   float e_after = 0.0;
   for (k = 0; k < K; k++) {
@@ -319,7 +321,8 @@ void interp_Wo_v(float Wo_[], int L_[], int voicing_[], float Wo1, float Wo2,
 
 void resample_rate_L(C2CONST *c2const, MODEL *model, float rate_K_vec[],
                      float rate_K_sample_freqs_kHz[], int K) {
-  float rate_K_vec_term[K + 2], rate_K_sample_freqs_kHz_term[K + 2];
+  assert(K <= NEWAMP1_K);
+  float rate_K_vec_term[NEWAMP1_K + 2], rate_K_sample_freqs_kHz_term[NEWAMP1_K + 2];
   float AmdB[MAX_AMP + 1], rate_L_sample_freqs_kHz[MAX_AMP + 1];
   int m, k;
 
@@ -364,7 +367,11 @@ void determine_phase(C2CONST *c2const, COMP H[], MODEL *model, int Nfft,
                      codec2_fft_cfg fwd_cfg, codec2_fft_cfg inv_cfg) {
   int i, m, b;
   int Ns = Nfft / 2 + 1;
-  float Gdbfk[Ns], sample_freqs_kHz[Ns], phase[Ns];
+  assert(Nfft <= NEWAMP1_PHASE_NFFT);
+  assert(Ns <= NEWAMP1_PHASE_NFFT / 2 + 1);
+  float Gdbfk[NEWAMP1_PHASE_NFFT / 2 + 1];
+  float sample_freqs_kHz[NEWAMP1_PHASE_NFFT / 2 + 1];
+  float phase[NEWAMP1_PHASE_NFFT / 2 + 1];
   float AmdB[MAX_AMP + 1], rate_L_sample_freqs_kHz[MAX_AMP + 1];
 
   for (m = 1; m <= model->L; m++) {
@@ -404,7 +411,10 @@ void determine_autoc(C2CONST *c2const, float Rk[], int order, MODEL *model,
                      int Nfft, codec2_fft_cfg fwd_cfg, codec2_fft_cfg inv_cfg) {
   int i, m;
   int Ns = Nfft / 2 + 1;
-  float Gdbfk[Ns], sample_freqs_kHz[Ns];
+  assert(Nfft <= NEWAMP1_PHASE_NFFT);
+  assert(Ns <= NEWAMP1_PHASE_NFFT / 2 + 1);
+  float Gdbfk[NEWAMP1_PHASE_NFFT / 2 + 1];
+  float sample_freqs_kHz[NEWAMP1_PHASE_NFFT / 2 + 1];
   float AmdB[MAX_AMP + 1], rate_L_sample_freqs_kHz[MAX_AMP + 1];
 
   /* interpolate in the log domain */
@@ -422,7 +432,7 @@ void determine_autoc(C2CONST *c2const, float Rk[], int order, MODEL *model,
   interp_para(Gdbfk, &rate_L_sample_freqs_kHz[1], &AmdB[1], model->L,
               sample_freqs_kHz, Ns);
 
-  COMP S[Nfft], R[Nfft];
+  COMP S[NEWAMP1_PHASE_NFFT], R[NEWAMP1_PHASE_NFFT];
 
   /* install negative frequency components, convert to mag squared of spectrum
    */
@@ -599,9 +609,10 @@ void newamp1_indexes_to_model(C2CONST *c2const, MODEL model_[], COMP H[],
                               codec2_fft_cfg fwd_cfg, codec2_fft_cfg inv_cfg,
                               int indexes[], float user_rate_K_vec_no_mean_[],
                               int post_filter_en) {
-  float rate_K_vec_[K], rate_K_vec_no_mean_[K], mean_, Wo_right;
+  assert(K <= NEWAMP1_K);
+  float rate_K_vec_[NEWAMP1_K], rate_K_vec_no_mean_[NEWAMP1_K], mean_, Wo_right;
   int voicing_right, k;
-  int M = 4;
+  enum { M = 4 };
 
   /* extract latest rate K vector */
 

@@ -73,12 +73,17 @@ int main(int argc, char *argv[]) {
 
   size_t framesize = atoi(argv[3]);
   char *uw_hex = argv[4];
-  uint8_t uw[4 * strlen(uw_hex)];
-  int uwsize = 0;
+  int uwsize = 4 * strlen(uw_hex);
+  uint8_t *uw = (uint8_t *)malloc(uwsize);
+  if (uw == NULL) {
+    fprintf(stderr, "failed to allocate uw\n");
+    exit(1);
+  }
+  int uwbit = 0;
   for (int c = 0; c < strlen(uw_hex); c++)
     for (int i = 0; i < 4; i++)
-      uw[uwsize++] = (toInt(uw_hex[c]) >> (3 - i)) & 0x1; /* MSB first */
-  assert(uwsize == 4 * strlen(uw_hex));
+      uw[uwbit++] = (toInt(uw_hex[c]) >> (3 - i)) & 0x1; /* MSB first */
+  assert(uwbit == uwsize);
 
   fprintf(stderr, "uw_hex: %s uwsize: %d\n", uw_hex, uwsize);
   for (int i = 0; i < uwsize; i++) fprintf(stderr, "%d ", uw[i]);
@@ -86,12 +91,18 @@ int main(int argc, char *argv[]) {
 
   /* main loop */
 
-  uint8_t frame[framesize];
+  uint8_t *frame = (uint8_t *)malloc(framesize);
+  if (frame == NULL) {
+    fprintf(stderr, "failed to allocate frame\n");
+    exit(1);
+  }
   while (fread(frame, sizeof(uint8_t), framesize, fin) == framesize) {
     fwrite(uw, sizeof(uint8_t), uwsize, fout);
     fwrite(frame, sizeof(uint8_t), framesize, fout);
   }
 
+  free(frame);
+  free(uw);
   fclose(fin);
   fclose(fout);
 

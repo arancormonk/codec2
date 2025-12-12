@@ -80,7 +80,9 @@ add_custom_target(dist
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # Set default C flags.
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-strict-overflow")
+if(NOT WIN32 OR MINGW)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wno-strict-overflow")
+endif()
 
 # Check for what C standard is supported.
 if(NOT WIN32)
@@ -102,8 +104,13 @@ if((NOT WIN32) AND (NOT MICROCONTROLLER_BUILD))
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 endif()
 
-set(CMAKE_C_FLAGS_DEBUG "-g -O2 -DDUMP")
-set(CMAKE_C_FLAGS_RELEASE "-O3")
+if(NOT WIN32 OR MINGW)
+    set(CMAKE_C_FLAGS_DEBUG "-g -O2")
+    set(CMAKE_C_FLAGS_RELEASE "-O3")
+endif()
+
+# Enable debug dump logging in Debug builds on all toolchains.
+add_compile_definitions($<$<CONFIG:Debug>:DUMP>)
 
 #
 # Setup Windows/MinGW specifics here.
@@ -118,6 +125,17 @@ endif(MINGW)
 option(BUILD_SHARED_LIBS
     "Build shared library. Set to OFF for static library." ON)
 option(UNITTEST "Build unittest binaries." OFF)
+
+set(CODEC2_BUILD_PROGRAMS_DEFAULT ON)
+set(CODEC2_BUILD_DEMOS_DEFAULT ON)
+if(WIN32 AND NOT MINGW)
+    set(CODEC2_BUILD_PROGRAMS_DEFAULT OFF)
+    set(CODEC2_BUILD_DEMOS_DEFAULT OFF)
+endif()
+option(CODEC2_BUILD_PROGRAMS "Build codec2 command-line programs."
+       ${CODEC2_BUILD_PROGRAMS_DEFAULT})
+option(CODEC2_BUILD_DEMOS "Build codec2 demo programs."
+       ${CODEC2_BUILD_DEMOS_DEFAULT})
 
 # LPCNet needs to be bootstrapped because codec2 and freedvlpcnet are
 # cross dependent.
@@ -213,7 +231,9 @@ endif()
 # codec2 library and demo apps
 #
 add_subdirectory(src)
-add_subdirectory(demo)
+if(CODEC2_BUILD_DEMOS)
+    add_subdirectory(demo)
+endif()
 
 
 if(UNITTEST)

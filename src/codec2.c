@@ -1450,7 +1450,7 @@ void codec2_encode_700c(struct CODEC2 *c2, unsigned char *bits,
     analyse_one_frame(c2, &model, &speech[i * c2->n_samp]);
   }
 
-  int K = 20;
+  enum { K = 20 };
   float rate_K_vec[K], mean;
   float rate_K_vec_no_mean[K], rate_K_vec_no_mean_[K];
 
@@ -1511,7 +1511,7 @@ void codec2_decode_700c(struct CODEC2 *c2, short speech[],
   indexes[2] = unpack_natural_or_gray(bits, &nbit, 4, 0);
   indexes[3] = unpack_natural_or_gray(bits, &nbit, 6, 0);
 
-  int M = 4;
+  enum { M = 4 };
   COMP HH[M][MAX_AMP + 1];
   float interpolated_surface_[M][NEWAMP1_K];
 
@@ -1883,15 +1883,19 @@ void codec2_load_codebook(struct CODEC2 *codec2_state, int num,
   }
   // fprintf(stderr, "reading newamp1vq_cb[%d] k=%d m=%d\n", num,
   // newamp1vq_cb[num].k, newamp1vq_cb[num].m);
-  float tmp[newamp1vq_cb[num].k * newamp1vq_cb[num].m];
-  int nread =
-      fread(tmp, sizeof(float), newamp1vq_cb[num].k * newamp1vq_cb[num].m, f);
+  int count = newamp1vq_cb[num].k * newamp1vq_cb[num].m;
+  float *tmp = (float *)malloc(sizeof(float) * count);
+  if (tmp == NULL) {
+    fprintf(stderr, "error allocating codebook tmp\n");
+    exit(1);
+  }
+  int nread = fread(tmp, sizeof(float), count, f);
   float *p = (float *)newamp1vq_cb[num].cb;
-  for (int i = 0; i < newamp1vq_cb[num].k * newamp1vq_cb[num].m; i++)
-    p[i] = tmp[i];
+  for (int i = 0; i < count; i++) p[i] = tmp[i];
   // fprintf(stderr, "nread = %d %f %f\n", nread, newamp1vq_cb[num].cb[0],
   // newamp1vq_cb[num].cb[1]);
-  assert(nread == newamp1vq_cb[num].k * newamp1vq_cb[num].m);
+  assert(nread == count);
+  free(tmp);
   fclose(f);
 }
 #endif

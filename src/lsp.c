@@ -30,11 +30,13 @@
 
 #include "lsp.h"
 
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "defines.h"
+#include "lpc.h"
 
 /*---------------------------------------------------------------------------*\
 
@@ -92,8 +94,10 @@ static float cheb_poly_eva(float *coef, float x, int order)
 /*  int order 		order of the polynomial 			*/
 {
   int i;
+
+  assert(order <= LPC_MAX_ORDER);
   float *t, *u, *v, sum;
-  float T[(order / 2) + 1];
+  float T[(LPC_MAX_ORDER / 2) + 1];
 
   /* Initialise pointers */
 
@@ -145,8 +149,10 @@ int lpc_to_lsp(float *a, int order, float *freq, int nb, float delta)
   float *pt;     /* ptr used for cheb_poly_eval()
                     whether P' or Q' 			*/
   int roots = 0; /* number of roots found 	        */
-  float Q[order + 1];
-  float P[order + 1];
+
+  assert(order <= LPC_MAX_ORDER);
+  float Q[LPC_MAX_ORDER + 1];
+  float P[LPC_MAX_ORDER + 1];
 
   flag = 1;
   m = order / 2; /* order of P'(z) & Q'(z) polynimials 	*/
@@ -262,8 +268,10 @@ void lsp_to_lpc(float *lsp, float *ak, int order)
   int i, j;
   float xout1, xout2, xin1, xin2;
   float *pw, *n1, *n2, *n3, *n4 = 0;
-  float freq[order];
-  float Wp[(order * 4) + 2];
+
+  assert(order <= LPC_MAX_ORDER);
+  float freq[LPC_MAX_ORDER];
+  float Wp[(LPC_MAX_ORDER * 4) + 2];
 
   /* convert from radians to the x=cos(w) domain */
 

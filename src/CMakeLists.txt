@@ -81,7 +81,9 @@ else(CMAKE_CROSSCOMPILING)
 # Build code generator binaries. These do not get installed.
     # generate_codebook
     add_executable(generate_codebook generate_codebook.c)
-    target_link_libraries(generate_codebook m)
+    if(NOT WIN32 OR MINGW)
+        target_link_libraries(generate_codebook m)
+    endif()
     # Make native builds available for cross-compiling.
     export(TARGETS generate_codebook
         FILE ${CMAKE_BINARY_DIR}/ImportExecutables.cmake)
@@ -272,6 +274,7 @@ export(TARGETS codec2
     FILE ${CMAKE_BINARY_DIR}/codec2.cmake
 )
 
+if(CODEC2_BUILD_PROGRAMS)
 add_executable(c2enc c2enc.c)
 target_link_libraries(c2enc codec2)
 
@@ -282,16 +285,24 @@ add_executable(c2sim c2sim.c sd.c)
 target_link_libraries(c2sim codec2)
 
 add_executable(fdmdv_get_test_bits fdmdv_get_test_bits.c fdmdv.c kiss_fft.c codec2_fft.c kiss_fftr.c)
-target_link_libraries(fdmdv_get_test_bits m)
+if(NOT WIN32 OR MINGW)
+    target_link_libraries(fdmdv_get_test_bits m)
+endif()
 
 add_executable(fdmdv_mod fdmdv_mod.c fdmdv.c kiss_fft.c codec2_fft.c kiss_fftr.c)
-target_link_libraries(fdmdv_mod m)
+if(NOT WIN32 OR MINGW)
+    target_link_libraries(fdmdv_mod m)
+endif()
 
 add_executable(fdmdv_demod fdmdv_demod.c fdmdv.c kiss_fft.c octave.c modem_stats.c codec2_fft.c kiss_fftr.c)
-target_link_libraries(fdmdv_demod m)
+if(NOT WIN32 OR MINGW)
+    target_link_libraries(fdmdv_demod m)
+endif()
 
 add_executable(fdmdv_put_test_bits fdmdv_put_test_bits.c fdmdv.c kiss_fft.c codec2_fft.c kiss_fftr.c)
-target_link_libraries(fdmdv_put_test_bits m)
+if(NOT WIN32 OR MINGW)
+    target_link_libraries(fdmdv_put_test_bits m)
+endif()
 
 add_executable(freedv_tx freedv_tx.c)
 target_link_libraries(freedv_tx codec2)
@@ -371,13 +382,16 @@ target_link_libraries(ch codec2)
 add_executable(tollr tollr.c)
 
 add_executable(ldpc_noise ldpc_noise.c)
-target_link_libraries(ldpc_noise m)
+if(NOT WIN32 OR MINGW)
+    target_link_libraries(ldpc_noise m)
+endif()
 
 add_executable(ldpc_enc ldpc_enc.c)
 target_link_libraries(ldpc_enc codec2)
 
 add_executable(ldpc_dec ldpc_dec.c)
 target_link_libraries(ldpc_dec codec2)
+endif()
 
 install(TARGETS codec2 EXPORT codec2-config
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT lib

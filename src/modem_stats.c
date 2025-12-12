@@ -28,7 +28,13 @@
 #include "modem_stats.h"
 
 #include <assert.h>
+#ifdef _MSC_VER
+#define _USE_MATH_DEFINES
+#endif
 #include <math.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #include "codec2_fdmdv.h"
 #include "kiss_fft.h"
