@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1614,7 +1615,7 @@ void freedv_get_modem_extended_stats(struct freedv *f,
     // different function
     // TODO we need a better design here: Issue #182
 #ifndef __EMBEDDED__
-    size_t ncopy = (void *)stats->rx_eye - (void *)stats;
+    size_t ncopy = offsetof(struct MODEM_STATS, rx_eye);
     memcpy(stats, &f->stats, ncopy);
 #endif
     stats->snr_est = f->snr_est;
